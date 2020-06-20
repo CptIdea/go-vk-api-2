@@ -16,19 +16,22 @@ type longpoll struct {
 func (vk *Session) UpdateCheck(GroupId int) Updates {
 	var upd Updates
 	for len(upd.Updates) == 0 {
-		url := "https://api.vk.com/method/groups.getLongPollServer?GroupId=" + strconv.Itoa(GroupId) + "&v=" + vk.Version + "&access_token=" + vk.Token
+		url := "https://api.vk.com/method/groups.getLongPollServer?group_id=" + strconv.Itoa(GroupId) + "&v=" + vk.Version + "&access_token=" + vk.Token
+		fmt.Println(url)
 		resp, err := http.Get(url)
 		if err != nil {
 			log.Fatalln(err)
 		}
 		bs := make([]byte, 1014)
 		n, err := resp.Body.Read(bs)
+		fmt.Println(string(bs[:n]))
 		var jsoned longpoll
 		err = json.Unmarshal(bs[:n], &jsoned)
 		if err != nil {
 			fmt.Println("error:", err)
 		}
 		url = jsoned.Response["server"] + "?act=a_check&key=" + jsoned.Response["key"] + "&ts=" + jsoned.Response["ts"] + "&wait=25"
+		fmt.Println(url)
 		resp, err = http.Get(url)
 		bs = make([]byte, 8112)
 		n, err = resp.Body.Read(bs)
