@@ -113,7 +113,7 @@ func (vk *Session) GetUsersInfo(Ids []int, fields []string) []User {
 func (vk *Session) GroupGetById(GroupIds []int, fields []string) []Group {
 	var params string
 	var output struct{ Response []Group }
-	params = "GroupIds="
+	params = "group_ids="
 	for i := 0; i < len(GroupIds); i++ {
 		GroupIds[i] = GroupIds[i] * -1
 	}
