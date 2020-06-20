@@ -12,10 +12,11 @@ import (
 type longpoll struct {
 	Response map[string]string
 }
-func (vk *Session) UpdateCheck(group_id int) Updates {
+
+func (vk *Session) UpdateCheck(GroupId int) Updates {
 	var upd Updates
 	for len(upd.Updates) == 0 {
-		url := "https://api.vk.com/method/groups.getLongPollServer?group_id=" + strconv.Itoa(group_id) + "&v=" + vk.Version + "&access_token=" + vk.Token
+		url := "https://api.vk.com/method/groups.getLongPollServer?GroupId=" + strconv.Itoa(GroupId) + "&v=" + vk.Version + "&access_token=" + vk.Token
 		resp, err := http.Get(url)
 		if err != nil {
 			log.Fatalln(err)
@@ -46,8 +47,7 @@ func (vk *Session) SendMessage(ToId int, message string) string {
 	return string(vk.SendRequest("messages.send", newrequest))
 }
 
-
-func (vk *Session) GetConversationInfo(peers []int, ext int, fields []string, group_id int) []Conversation {
+func (vk *Session) GetConversationInfo(peers []int, ext int, fields []string, GroupId int) []Conversation {
 	var params string
 	var output struct {
 		Response struct{ Items []Conversation }
@@ -70,7 +70,7 @@ func (vk *Session) GetConversationInfo(peers []int, ext int, fields []string, gr
 			}
 		}
 	}
-	params = params + "&group_id=" + strconv.Itoa(group_id)
+	params = params + "&GroupId=" + strconv.Itoa(GroupId)
 	resp := vk.SendRequest("messages.getConversationsById", params)
 	fmt.Println(string(resp))
 	err := json.Unmarshal(resp, &output)
@@ -79,6 +79,7 @@ func (vk *Session) GetConversationInfo(peers []int, ext int, fields []string, gr
 	}
 	return output.Response.Items
 }
+
 //Возвращает информацию о пользователях в массиве объектов User
 func (vk *Session) GetUsersInfo(Ids []int, fields []string) []User {
 	var params string
@@ -107,22 +108,23 @@ func (vk *Session) GetUsersInfo(Ids []int, fields []string) []User {
 	}
 	return output.Response
 }
+
 //Возвращает информацию о сообществах в массиве объектов Group
-func (vk *Session) GroupGetById(group_ids []int,fields []string)[]Group {
+func (vk *Session) GroupGetById(GroupIds []int, fields []string) []Group {
 	var params string
 	var output struct{ Response []Group }
-	params = "group_ids="
-	for i := 0; i < len(group_ids);i++ {
-		group_ids[i] = group_ids[i]*-1
+	params = "GroupIds="
+	for i := 0; i < len(GroupIds); i++ {
+		GroupIds[i] = GroupIds[i] * -1
 	}
-	for i := 0; i < len(group_ids); {
-		params = params + strconv.Itoa(group_ids[i])
+	for i := 0; i < len(GroupIds); {
+		params = params + strconv.Itoa(GroupIds[i])
 		i++
-		if i < len(group_ids) {
+		if i < len(GroupIds) {
 			params = params + ","
 		}
 	}
-	if len(fields) !=0 {
+	if len(fields) != 0 {
 		params = params + "&fields="
 		for i := 0; i < len(fields); {
 			params = params + fields[i]
@@ -139,8 +141,6 @@ func (vk *Session) GroupGetById(group_ids []int,fields []string)[]Group {
 	}
 	return output.Response
 }
-
-
 
 func (vk *Session) SendRequest(method, params string) []byte {
 	url := "https://api.vk.com/method/" + method + "?" + params + "&v=" + vk.Version + "&access_token=" + vk.Token
