@@ -216,7 +216,7 @@ type Group struct {
 	Name         string
 	ScreenName   string `json:"screen_name"`
 	IsClosed     int    `json:"is_closed"`
-	Deactivated  int
+	Deactivated  string
 	IsAdmin      int `json:"is_admin"`
 	AdminLevel   int `json:"admin_level"`
 	IsMember     int `json:"is_member"`
@@ -849,10 +849,10 @@ type Place struct {
 type Keyboard struct {
 	OneTime bool `json:"one_time"`
 	Inline  bool
-	Buttons []Button
+	Buttons [][]Button
 }
 type Button struct {
-	Action []struct {
+	Action struct {
 		Type    string
 		Label   string
 		Payload string

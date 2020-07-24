@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
+	"vk_api/httputil"
 )
 
 type longpoll struct {
@@ -16,8 +19,8 @@ type longpoll struct {
 func (vk *Session) UpdateCheck(GroupId int) Updates {
 	var upd Updates
 	for len(upd.Updates) == 0 {
-		url := "https://api.vk.com/method/groups.getLongPollServer?group_id=" + strconv.Itoa(GroupId) + "&v=" + vk.Version + "&access_token=" + vk.Token
-		resp, err := http.Get(url)
+		URL := "https://api.vk.com/method/groups.getLongPollServer?group_id=" + strconv.Itoa(GroupId) + "&v=" + vk.Version + "&access_token=" + vk.Token
+		resp, err := http.Get(URL)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -28,10 +31,13 @@ func (vk *Session) UpdateCheck(GroupId int) Updates {
 		if err != nil {
 			fmt.Println("error:", err)
 		}
-		url = jsoned.Response["server"] + "?act=a_check&key=" + jsoned.Response["key"] + "&ts=" + jsoned.Response["ts"] + "&wait=25"
-		resp, err = http.Get(url)
+		URL = jsoned.Response["server"] + "?act=a_check&key=" + jsoned.Response["key"] + "&ts=" + jsoned.Response["ts"] + "&wait=25"
+		resp, err = http.Get(URL)
 		bs = make([]byte, 8112)
 		n, err = resp.Body.Read(bs)
+		if err != nil {
+			fmt.Println("error:", err)
+		}
 		err = json.Unmarshal(bs[:n], &upd)
 		if err != nil {
 			fmt.Println("error:", err)
@@ -41,37 +47,121 @@ func (vk *Session) UpdateCheck(GroupId int) Updates {
 }
 
 // Отправляет сообщение message в чат ToId
-func (vk *Session) SendMessage(ToId int, message string) string {
-	message = strings.Replace(message, " ", "+", -1)
-	newrequest := "peer_id=" + strconv.Itoa(ToId) + "&" + "message=" + message
-	return string(vk.SendRequest("messages.send", newrequest))
+func (vk *Session) SendMessage(ToId int, message string) []byte {
+	//message = strings.Replace(message, " ", "+", -1)
+	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message})
+}
+func (vk *Session) EditMessage(Peer, MessageId int, NewMessage string) []byte {
+	return vk.SendRequest("messages.edit", Request{"peer_id": Peer, "message": NewMessage, "message_id": MessageId})
+}
+func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Attachments ...string) []byte {
+	ReadyKeyboard := map[string]interface{}{
+		"one_time": Keyboard.OneTime,
+		"inline":   Keyboard.Inline,
+	}
+
+	var ButtonsArray [][]map[string]interface{}
+
+	for _, k := range Keyboard.Buttons {
+		var ButtonString []map[string]interface{}
+		for _, c := range k {
+			CurrentButton := make(map[string]interface{})
+			if c.Color != "" {
+				CurrentButton["color"] = c.Color
+			}
+			switch c.Action.Type {
+			case "text":
+				CurrentButton["action"] = map[string]interface{}{
+					"type":    "text",
+					"label":   c.Action.Label,
+					"payload": c.Action.Payload,
+				}
+			case "open_link":
+				CurrentButton["action"] = map[string]interface{}{
+					"type":    "open_link",
+					"link":    c.Action.Link,
+					"label":   c.Action.Label,
+					"payload": c.Action.Payload,
+				}
+			case "location":
+				CurrentButton["action"] = map[string]interface{}{
+					"type":    "location",
+					"payload": c.Action.Payload,
+				}
+			case "vkpay":
+				CurrentButton["action"] = map[string]interface{}{
+					"type":    "open_link",
+					"payload": c.Action.Payload,
+					"hash":    c.Action.Hash,
+				}
+			case "open_app":
+				CurrentButton["action"] = map[string]interface{}{
+					"type":     "open_app",
+					"app_id":   c.Action.AppId,
+					"owner_id": c.Action.OwnerId,
+					"payload":  c.Action.Payload,
+					"label":    c.Action.Label,
+					"hash":     c.Action.Hash,
+				}
+			default:
+				continue
+			}
+
+			ButtonString = append(ButtonString, CurrentButton)
+		}
+		if ButtonString != nil {
+			ButtonsArray = append(ButtonsArray, ButtonString)
+		}
+
+	}
+	ReadyKeyboard["buttons"] = ButtonsArray
+	JSONKey, err := json.Marshal(ReadyKeyboard)
+	if err != nil {
+		fmt.Println(err)
+	}
+	var resp []byte
+	if len(Attachments) > 0 {
+		var StrAtt string
+		for i, cur := range Attachments {
+			StrAtt += cur
+			i++
+			if i < len(Attachments) {
+				StrAtt += ","
+			}
+		}
+		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey), "attachments": StrAtt})
+	} else {
+		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey)})
+	}
+
+	return resp
 }
 
-func (vk *Session) GetConversationInfo(peers []int, ext int, fields []string, GroupId int) []Conversation {
+func (vk *Session) GetConversationInfo(peers []int, GroupId int, fields ...string) []Conversation {
 	var params string
 	var output struct {
 		Response struct{ Items []Conversation }
 	}
+	var Peers, Fields string
 	params = "peer_ids="
 	for i := 0; i < len(peers); {
-		params = params + strconv.Itoa(peers[i])
+		Peers += strconv.Itoa(peers[i])
 		i++
 		if i < len(peers) {
-			params = params + ","
+			Peers += ","
 		}
 	}
-	if ext == 1 {
-		params = params + "&extended=1&fields="
+	if len(fields) != 0 {
 		for i := 0; i < len(fields); {
-			params = params + fields[i]
+			Fields += fields[i]
 			i++
 			if i < len(fields) {
-				params = params + ","
+				Fields += ","
 			}
 		}
 	}
 	params = params + "&GroupId=" + strconv.Itoa(GroupId)
-	resp := vk.SendRequest("messages.getConversationsById", params)
+	resp := vk.SendRequest("messages.getConversationsById", Request{"peer_ids": Peers, "fields": Fields})
 	fmt.Println(string(resp))
 	err := json.Unmarshal(resp, &output)
 	if err != nil {
@@ -81,27 +171,24 @@ func (vk *Session) GetConversationInfo(peers []int, ext int, fields []string, Gr
 }
 
 //Возвращает информацию о пользователях в массиве объектов User
-func (vk *Session) GetUsersInfo(Ids []int, fields []string) []User {
-	var params string
+func (vk *Session) GetUsersInfo(Ids []int, fields ...string) []User {
 	var output struct{ Response []User }
-	params = "user_ids="
+	var Users, Fields string
 	for i := 0; i < len(Ids); {
-		params = params + strconv.Itoa(Ids[i])
+		Users += strconv.Itoa(Ids[i])
 		i++
 		if i < len(Ids) {
-			params = params + ","
+			Users += ","
 		}
 	}
-	params = params + "&fields="
 	for i := 0; i < len(fields); {
-		params = params + fields[i]
+		Fields += fields[i]
 		i++
 		if i < len(fields) {
-			params = params + ","
+			Fields += ","
 		}
 	}
-	params = params + "&name_case=nom,gen,dat,acc,ins,abl"
-	resp := vk.SendRequest("users.get", params)
+	resp := vk.SendRequest("users.get", Request{"user_ids": Users, "fields": Fields})
 	err := json.Unmarshal(resp, &output)
 	if err != nil {
 		fmt.Println("error:", err)
@@ -110,31 +197,28 @@ func (vk *Session) GetUsersInfo(Ids []int, fields []string) []User {
 }
 
 //Возвращает информацию о сообществах в массиве объектов Group
-func (vk *Session) GroupGetById(GroupIds []int, fields []string) []Group {
-	var params string
+func (vk *Session) GroupGetById(GroupIds []int, fields ...string) []Group {
 	var output struct{ Response []Group }
-	params = "group_ids="
+	var Groups string
+	var Fields string
 	for i := 0; i < len(GroupIds); i++ {
 		GroupIds[i] = GroupIds[i] * -1
 	}
 	for i := 0; i < len(GroupIds); {
-		params = params + strconv.Itoa(GroupIds[i])
+		Groups += strconv.Itoa(GroupIds[i])
 		i++
 		if i < len(GroupIds) {
-			params = params + ","
+			Groups += ","
 		}
 	}
-	if len(fields) != 0 {
-		params = params + "&fields="
-		for i := 0; i < len(fields); {
-			params = params + fields[i]
-			i++
-			if i < len(fields) {
-				params = params + ","
-			}
+	for i := 0; i < len(fields); {
+		Fields += fields[i]
+		i++
+		if i < len(fields) {
+			Fields += ","
 		}
 	}
-	resp := vk.SendRequest("groups.getById", params)
+	resp := vk.SendRequest("groups.getById", Request{"group_ids": Groups, "fields": Fields})
 	err := json.Unmarshal(resp, &output)
 	if err != nil {
 		fmt.Println("error:", err)
@@ -142,13 +226,26 @@ func (vk *Session) GroupGetById(GroupIds []int, fields []string) []Group {
 	return output.Response
 }
 
-func (vk *Session) SendRequest(method, params string) []byte {
-	url := "https://api.vk.com/method/" + method + "?" + params + "&v=" + vk.Version + "&access_token=" + vk.Token
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatalln(err)
+func (vk *Session) SendRequest(method string, params map[string]interface{}) []byte {
+	Url := "https://api.vk.com/method/" + method + "?" + "v=" + vk.Version + "&access_token=" + vk.Token
+	ReadyParams := url.Values{}
+	for k, v := range params {
+		ReadyParams.Add(k, fmt.Sprint(v))
 	}
-	bs := make([]byte, 1014)
-	n, err := resp.Body.Read(bs)
-	return bs[:n]
+	var resp []byte
+	var err interface{}
+	for {
+		resp, err = httputil.Post(http.DefaultClient, Url, ReadyParams)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		if !vk.SkipAutoResend {
+			if strings.Contains(string(resp), "Too many requests per second") || strings.Contains(string(resp), "400 Bad Request") {
+				time.Sleep(time.Second)
+				continue
+			}
+		}
+		break
+	}
+	return resp
 }
