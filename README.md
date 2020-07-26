@@ -27,5 +27,6 @@ YNKeyboard := vk.Keyboard{
 	YNKeyboard.Buttons[0][1].Action.Type = "text"
 	YNKeyboard.Buttons[0][1].Action.Label = "Нет"
 	YNKeyboard.Buttons[0][1].Color = "secondary"
+	botSession.SendKeyboard(ID, YNKeyboard, "Да или нет?")
  ```
  
