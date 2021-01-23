@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 	"vk_api/httputil"
-	"math/rand"
 )
 
 type longpoll struct {
@@ -54,8 +54,7 @@ func (vk *Session) UpdateCheck(GroupId int) Updates {
 
 // Отправляет сообщение message в чат ToId
 func (vk *Session) SendMessage(ToId int, message string) []byte {
-	//message = strings.Replace(message, " ", "+", -1)
-	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message,"random_id":rand.Intn(10000)})
+	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message,"random_id":rand.Intn(2147483647)})
 }
 func (vk *Session) EditMessage(Peer, MessageId int, NewMessage string) []byte {
 	return vk.SendRequest("messages.edit", Request{"peer_id": Peer, "message": NewMessage, "message_id": MessageId})
@@ -135,9 +134,9 @@ func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Att
 				StrAtt += ","
 			}
 		}
-		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey), "attachments": StrAtt})
+		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey), "attachments": StrAtt,"random_id":rand.Intn(2147483647)})
 	} else {
-		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey)})
+		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey),"random_id":rand.Intn(2147483647)})
 	}
 
 	return resp
