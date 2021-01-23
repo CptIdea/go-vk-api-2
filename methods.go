@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"vk_api/httputil"
+	"math/rand"
 )
 
 type longpoll struct {
@@ -33,6 +34,11 @@ func (vk *Session) UpdateCheck(GroupId int) Updates {
 		}
 		URL = jsoned.Response["server"] + "?act=a_check&key=" + jsoned.Response["key"] + "&ts=" + jsoned.Response["ts"] + "&wait=25"
 		resp, err = http.Get(URL)
+		if err != nil {
+			fmt.Println("error:", err)
+			fmt.Println(string(bs[:n]))
+
+		}
 		bs = make([]byte, 8112)
 		n, err = resp.Body.Read(bs)
 		if err != nil {
@@ -49,7 +55,7 @@ func (vk *Session) UpdateCheck(GroupId int) Updates {
 // Отправляет сообщение message в чат ToId
 func (vk *Session) SendMessage(ToId int, message string) []byte {
 	//message = strings.Replace(message, " ", "+", -1)
-	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message})
+	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message,"random_id":rand.Intn(10000)})
 }
 func (vk *Session) EditMessage(Peer, MessageId int, NewMessage string) []byte {
 	return vk.SendRequest("messages.edit", Request{"peer_id": Peer, "message": NewMessage, "message_id": MessageId})
@@ -226,7 +232,7 @@ func (vk *Session) GroupGetById(GroupIds []int, fields ...string) []Group {
 	return output.Response
 }
 
-func (vk *Session) SendRequest(method string, params map[string]interface{}) []byte {
+func (vk *Session) SendRequest(method string, params Request) []byte {
 	Url := "https://api.vk.com/method/" + method + "?" + "v=" + vk.Version + "&access_token=" + vk.Token
 	ReadyParams := url.Values{}
 	for k, v := range params {

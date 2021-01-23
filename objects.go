@@ -4,9 +4,10 @@ type Updates struct {
 	Updates []struct {
 		Type   string
 		Object struct {
-			Message     Message
-			Wall        Wall
-			WallComment WallComment
+			MessageNew Message `json:"message"`
+			Message
+			Wall         Wall
+			WallComment  WallComment
 		}
 	}
 }
@@ -863,3 +864,5 @@ type Button struct {
 	}
 	Color string
 }
+
+type Params map[string]interface{}
