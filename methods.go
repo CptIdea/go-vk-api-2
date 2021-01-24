@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"vk_api/httputil"
+	"github.com/CptIdea/go-vk-api/httputil"
 )
 
 type longpoll struct {
