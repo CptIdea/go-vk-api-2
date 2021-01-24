@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/CptIdea/go-vk-api/httputil"
 )
 
 type longpoll struct {
@@ -240,7 +239,7 @@ func (vk *Session) SendRequest(method string, params Request) []byte {
 	var resp []byte
 	var err interface{}
 	for {
-		resp, err = httputil.Post(http.DefaultClient, Url, ReadyParams)
+		resp, err = Post(http.DefaultClient, Url, ReadyParams)
 		if err != nil {
 			log.Fatalln(err)
 		}
