@@ -1,5 +1,6 @@
 package vk
 
+
 type Updates struct {
 	Updates []struct {
 		Type   string
