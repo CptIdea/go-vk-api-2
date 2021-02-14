@@ -16,8 +16,6 @@ type longpoll struct {
 	Response map[string]string
 }
 
-// UpdateCheck is an older API, and will be removed.  Please use
-// SetContent instead; UpdateCheck is implemented in terms of SetContent.
 func (vk *Session) UpdateCheck(GroupId int) (Updates, error) {
 	var upd Updates
 	for len(upd.Updates) == 0 {
