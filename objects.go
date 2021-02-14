@@ -4,8 +4,7 @@ type Updates struct {
 	Updates []struct {
 		Type   string
 		Object struct {
-			MessageNew Message `json:"message"`
-			Message
+			MessageNew  Message `json:"message"`
 			Wall        Wall
 			WallComment WallComment
 		}
