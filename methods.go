@@ -3,7 +3,7 @@ package vk
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -16,49 +16,51 @@ type longpoll struct {
 	Response map[string]string
 }
 
-func (vk *Session) UpdateCheck(GroupId int) Updates {
+// UpdateCheck is an older API, and will be removed.  Please use
+// SetContent instead; UpdateCheck is implemented in terms of SetContent.
+func (vk *Session) UpdateCheck(GroupId int) (Updates, error) {
 	var upd Updates
 	for len(upd.Updates) == 0 {
-		URL := "https://api.vk.com/method/groups.getLongPollServer?group_id=" + strconv.Itoa(GroupId) + "&v=" + vk.Version + "&access_token=" + vk.Token
+		URL := fmt.Sprintf("https://api.vk.com/method/groups.getLongPollServer?group_id=%s&v=%s&access_token=%s", strconv.Itoa(GroupId), vk.version, vk.token)
 		resp, err := http.Get(URL)
 		if err != nil {
-			log.Fatalln(err)
+			return Updates{}, err
 		}
-		bs := make([]byte, 1014)
-		n, err := resp.Body.Read(bs)
-		var jsoned longpoll
-		err = json.Unmarshal(bs[:n], &jsoned)
+		rawAns, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Println("error:", err)
+			return Updates{}, err
 		}
-		URL = jsoned.Response["server"] + "?act=a_check&key=" + jsoned.Response["key"] + "&ts=" + jsoned.Response["ts"] + "&wait=25"
+		var jsoned longpoll
+		err = json.Unmarshal(rawAns, &jsoned)
+		if err != nil {
+			return Updates{}, err
+		}
+
+		URL = fmt.Sprintf("%s?act=a_check&key=%s&ts=%s&wait=25", jsoned.Response["server"], jsoned.Response["key"], jsoned.Response["ts"])
 		resp, err = http.Get(URL)
 		if err != nil {
-			fmt.Println("error:", err)
-			fmt.Println(string(bs[:n]))
-
+			return Updates{}, fmt.Errorf("err:%e\tdata:%s", err, string(rawAns))
 		}
-		bs = make([]byte, 8112)
-		n, err = resp.Body.Read(bs)
+		rawAns, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Println("error:", err)
+			return Updates{}, err
 		}
-		err = json.Unmarshal(bs[:n], &upd)
+		err = json.Unmarshal(rawAns, &upd)
 		if err != nil {
-			fmt.Println("error:", err)
+			return Updates{}, err
 		}
 	}
-	return upd
+	return upd, nil
 }
 
 // Отправляет сообщение message в чат ToId
-func (vk *Session) SendMessage(ToId int, message string) []byte {
-	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message,"random_id":rand.Intn(2147483647)})
+func (vk *Session) SendMessage(ToId int, message string) ([]byte, error) {
+	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message, "random_id": rand.Intn(2147483647)})
 }
-func (vk *Session) EditMessage(Peer, MessageId int, NewMessage string) []byte {
+func (vk *Session) EditMessage(Peer, MessageId int, NewMessage string) ([]byte, error) {
 	return vk.SendRequest("messages.edit", Request{"peer_id": Peer, "message": NewMessage, "message_id": MessageId})
 }
-func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Attachments ...string) []byte {
+func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Attachments ...string) ([]byte, error) {
 	ReadyKeyboard := map[string]interface{}{
 		"one_time": Keyboard.OneTime,
 		"inline":   Keyboard.Inline,
@@ -121,7 +123,7 @@ func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Att
 	ReadyKeyboard["buttons"] = ButtonsArray
 	JSONKey, err := json.Marshal(ReadyKeyboard)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 	var resp []byte
 	if len(Attachments) > 0 {
@@ -133,15 +135,15 @@ func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Att
 				StrAtt += ","
 			}
 		}
-		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey), "attachments": StrAtt,"random_id":rand.Intn(2147483647)})
+		resp, err = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey), "attachments": StrAtt, "random_id": rand.Intn(2147483647)})
 	} else {
-		resp = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey),"random_id":rand.Intn(2147483647)})
+		resp, err = vk.SendRequest("messages.send", Request{"peer_id": ToId, "message": Message, "keyboard": string(JSONKey), "random_id": rand.Intn(2147483647)})
 	}
 
-	return resp
+	return resp, err
 }
 
-func (vk *Session) GetConversationInfo(peers []int, GroupId int, fields ...string) []Conversation {
+func (vk *Session) GetConversationInfo(peers []int, GroupId int, fields ...string) ([]Conversation, error) {
 	var params string
 	var output struct {
 		Response struct{ Items []Conversation }
@@ -165,17 +167,17 @@ func (vk *Session) GetConversationInfo(peers []int, GroupId int, fields ...strin
 		}
 	}
 	params = params + "&GroupId=" + strconv.Itoa(GroupId)
-	resp := vk.SendRequest("messages.getConversationsById", Request{"peer_ids": Peers, "fields": Fields})
-	fmt.Println(string(resp))
-	err := json.Unmarshal(resp, &output)
+	resp, err := vk.SendRequest("messages.getConversationsById", Request{"peer_ids": Peers, "fields": Fields})
+
+	err = json.Unmarshal(resp, &output)
 	if err != nil {
-		fmt.Println("error:", err)
+		return nil, err
 	}
-	return output.Response.Items
+	return output.Response.Items, err
 }
 
 //Возвращает информацию о пользователях в массиве объектов User
-func (vk *Session) GetUsersInfo(Ids []int, fields ...string) []User {
+func (vk *Session) GetUsersInfo(Ids []int, fields ...string) ([]User, error) {
 	var output struct{ Response []User }
 	var Users, Fields string
 	for i := 0; i < len(Ids); {
@@ -192,16 +194,17 @@ func (vk *Session) GetUsersInfo(Ids []int, fields ...string) []User {
 			Fields += ","
 		}
 	}
-	resp := vk.SendRequest("users.get", Request{"user_ids": Users, "fields": Fields})
-	err := json.Unmarshal(resp, &output)
+	resp, err := vk.SendRequest("users.get", Request{"user_ids": Users, "fields": Fields})
+	err = json.Unmarshal(resp, &output)
 	if err != nil {
-		fmt.Println("error:", err)
+		return nil, err
 	}
-	return output.Response
+
+	return output.Response, err
 }
 
 //Возвращает информацию о сообществах в массиве объектов Group
-func (vk *Session) GroupGetById(GroupIds []int, fields ...string) []Group {
+func (vk *Session) GroupGetById(GroupIds []int, fields ...string) ([]Group, error) {
 	var output struct{ Response []Group }
 	var Groups string
 	var Fields string
@@ -222,34 +225,42 @@ func (vk *Session) GroupGetById(GroupIds []int, fields ...string) []Group {
 			Fields += ","
 		}
 	}
-	resp := vk.SendRequest("groups.getById", Request{"group_ids": Groups, "fields": Fields})
-	err := json.Unmarshal(resp, &output)
+	resp, err := vk.SendRequest("groups.getById", Request{"group_ids": Groups, "fields": Fields})
+	err = json.Unmarshal(resp, &output)
 	if err != nil {
-		fmt.Println("error:", err)
+		return nil, err
 	}
-	return output.Response
+	return output.Response, err
 }
 
-func (vk *Session) SendRequest(method string, params Request) []byte {
-	Url := "https://api.vk.com/method/" + method + "?" + "v=" + vk.Version + "&access_token=" + vk.Token
+func (vk *Session) SendRequest(method string, params Request) (resp []byte, err error) {
+	URL := fmt.Sprintf("https://api.vk.com/method/%s?v=%s&access_token=%s", method, vk.version, vk.token)
+
 	ReadyParams := url.Values{}
 	for k, v := range params {
 		ReadyParams.Add(k, fmt.Sprint(v))
 	}
-	var resp []byte
-	var err interface{}
 	for {
-		resp, err = Post(http.DefaultClient, Url, ReadyParams)
+		resp, err = Post(http.DefaultClient, URL, ReadyParams)
 		if err != nil {
-			log.Fatalln(err)
+			return nil, err
 		}
+		vkErr := vkError{}
+		err := json.Unmarshal(resp, &vkErr)
+		if err != nil {
+			return nil, err
+		}
+
 		if !vk.SkipAutoResend {
 			if strings.Contains(string(resp), "Too many requests per second") || strings.Contains(string(resp), "400 Bad Request") {
-				time.Sleep(time.Second)
+				time.Sleep(time.Second / 2)
 				continue
 			}
 		}
+		if vkErr.Error.ErrorCode != 0 {
+			return nil, fmt.Errorf("code:%d\terror:%s\tparams:%v\trawResp:%s", vkErr.Error.ErrorCode, vkErr.Error.ErrorMsg, vkErr.Error.RequestParams, resp)
+		}
 		break
 	}
-	return resp
+	return resp, err
 }

@@ -1,14 +1,13 @@
 package vk
 
-
 type Updates struct {
 	Updates []struct {
 		Type   string
 		Object struct {
 			MessageNew Message `json:"message"`
 			Message
-			Wall         Wall
-			WallComment  WallComment
+			Wall        Wall
+			WallComment WallComment
 		}
 	}
 }
@@ -867,3 +866,14 @@ type Button struct {
 }
 
 type Params map[string]interface{}
+
+type vkError struct {
+	Error struct {
+		ErrorCode     int    `json:"error_code"`
+		ErrorMsg      string `json:"error_msg"`
+		RequestParams []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"request_params"`
+	} `json:"error"`
+}
