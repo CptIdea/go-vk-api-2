@@ -1,6 +1,7 @@
 package vk
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -55,9 +56,59 @@ func (vk *Session) UpdateCheck(GroupId int) (Updates, error) {
 func (vk *Session) SendMessage(ToId int, message string) ([]byte, error) {
 	return vk.SendRequest("messages.send", Request{"peer_id": strconv.Itoa(ToId), "message": message, "random_id": rand.Intn(2147483647)})
 }
+
+// Редактирует сообщение messageId
 func (vk *Session) EditMessage(Peer, MessageId int, NewMessage string) ([]byte, error) {
 	return vk.SendRequest("messages.edit", Request{"peer_id": Peer, "message": NewMessage, "message_id": MessageId})
 }
+
+func (vk Session) KeyGet(key string, userId int) (string, error) {
+	ans := struct {
+		Response []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"response"`
+	}{}
+
+	resp, err := vk.SendRequest("storage.get", Request{"key": key, "user_id": userId})
+	if err != nil {
+		return "", err
+	}
+	err = json.Unmarshal(resp, &ans)
+	if err != nil {
+		return "", err
+	}
+	return ans.Response[0].Value, err
+}
+func (vk Session) KeysGet(keys []string, userId int) ([]struct {
+	Key   string
+	Value string
+}, error) {
+	ans := struct {
+		Response []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"response"`
+	}{}
+
+	resp, err := vk.SendRequest("storage.get", Request{"keys": strings.ReplaceAll(strings.Replace(strings.Replace(fmt.Sprintf("%s", keys), "[", "", 1), "]", "", 1), " ", ","), "user_id": userId})
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(resp, &ans)
+	if err != nil {
+		return nil, err
+	}
+	return []struct {
+		Key   string
+		Value string
+	}(ans.Response), err
+}
+
+func (vk Session) KeySet(key string, value string, userID int) ([]byte, error) {
+	return vk.SendRequest("storage.set", map[string]interface{}{"key": key, "value": value, "user_id": userID})
+}
+
 func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Attachments ...string) ([]byte, error) {
 	ReadyKeyboard := map[string]interface{}{
 		"one_time": Keyboard.OneTime,
@@ -124,6 +175,9 @@ func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Att
 		return nil, err
 	}
 	var resp []byte
+
+	JSONKey = bytes.Replace(JSONKey, []byte("\"buttons\":null"), []byte("\"buttons\":[]"), 1)
+
 	if len(Attachments) > 0 {
 		var StrAtt string
 		for i, cur := range Attachments {
