@@ -125,6 +125,12 @@ func (vk *Session) SendKeyboard(ToId int, Keyboard Keyboard, Message string, Att
 				CurrentButton["color"] = c.Color
 			}
 			switch c.Action.Type {
+			case "callback":
+				CurrentButton["action"] = map[string]interface{}{
+					"type":    "callback",
+					"label":   c.Action.Label,
+					"payload": c.Action.Payload,
+				}
 			case "text":
 				CurrentButton["action"] = map[string]interface{}{
 					"type":    "text",
