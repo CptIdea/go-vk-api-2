@@ -861,16 +861,18 @@ type Keyboard struct {
 	Buttons [][]Button
 }
 type Button struct {
-	Action struct {
-		Type    string
-		Label   string
-		Payload string
-		Link    string
-		Hash    string
-		AppId   int `json:"app_id"`
-		OwnerId int `json:"owner_id"`
-	}
-	Color string
+	Action ButtonAction
+	Color  string
+}
+
+type ButtonAction struct {
+	Type    string
+	Label   string
+	Payload string
+	Link    string
+	Hash    string
+	AppId   int `json:"app_id"`
+	OwnerId int `json:"owner_id"`
 }
 
 type Params map[string]interface{}

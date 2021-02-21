@@ -74,3 +74,70 @@ func GenerateKeyBoard(rawKeyboard string, inline bool, oneTime bool) Keyboard {
 	KB.OneTime = oneTime
 	return KB
 }
+
+func NewTextButton(color string, label string, payload string) Button {
+	return Button{
+		Action: ButtonAction{
+			Type:    "text",
+			Label:   label,
+			Payload: payload,
+		},
+		Color: color,
+	}
+}
+
+func NewOpenLinkButton(color string, link string, label string, payload string) Button {
+	return Button{
+		Action: ButtonAction{
+			Type:    "open_link",
+			Link:    link,
+			Label:   label,
+			Payload: payload,
+		},
+		Color: color,
+	}
+}
+func NewLocationButton(color string, payload string) Button {
+	return Button{
+		Action: ButtonAction{
+			Type:    "location",
+			Payload: payload,
+		},
+		Color: color,
+	}
+}
+func NewVKPayButton(color string, hash string, payload string) Button {
+	return Button{
+		Action: ButtonAction{
+			Type:    "vkpay",
+			Payload: payload,
+			Hash:    hash,
+		},
+		Color: color,
+	}
+}
+
+func NewOpenAppButton(color string, label string, appID int, ownerID int, hash string, payload string) Button {
+	return Button{
+		Action: ButtonAction{
+			Type:    "open_app",
+			Payload: payload,
+			Label:   label,
+			AppId:   appID,
+			OwnerId: ownerID,
+			Hash:    hash,
+		},
+		Color: color,
+	}
+}
+
+func NewCallbackButton(color string, label string, payload string) Button {
+	return Button{
+		Action: ButtonAction{
+			Type:    "callback",
+			Label:   label,
+			Payload: payload,
+		},
+		Color: color,
+	}
+}
