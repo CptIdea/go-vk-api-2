@@ -4,11 +4,20 @@ type Updates struct {
 	Updates []struct {
 		Type   string
 		Object struct {
-			MessageNew  Message `json:"message"`
-			Wall        Wall
-			WallComment WallComment
+			MessageNew   Message `json:"message"`
+			Wall         Wall
+			WallComment  WallComment
+			MessageEvent MessageEvent
 		}
 	}
+}
+
+type MessageEvent struct {
+	ConversationMessageID int    `json:"conversation_message_id"`
+	UserID                int    `json:"user_id"`
+	PeerID                int    `json:"peer_id"`
+	EventID               string `json:"event_id"`
+	Payload               string `json:"payload"`
 }
 
 type Message struct {
